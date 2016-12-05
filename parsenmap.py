@@ -8,11 +8,20 @@ from service import Service
 
 
 def main(argument):
-	tree = ET.parse(argument)
-	root = tree.getroot()
 	hosts = []
-	populateList(root, hosts)
-	#printList(hosts)
+
+	try:
+		tree = ET.parse(argument)
+		root = tree.getroot()
+
+		try:
+			populateList(root, hosts)
+		except:
+			print ('error when populating hosts list')
+
+	except:
+		print ('error when parsing the document root for file: ' + str(argument))
+		print ('most likely trying to process a malformed or incomplete .xml file')
 	return hosts
 
 
@@ -21,10 +30,12 @@ def populateList(root,hosts):
 	hostnodes = root.findall('.//host')
 
 	for hostnode in hostnodes:
-		addressnode = hostnode.find('address')
-		address = (addressnode.attrib['addr'])
-		hoststatusnode = hostnode.find('status')
-		hoststatus = hoststatusnode.attrib['state']
+		if (hostnode is not None):
+
+			addressnode = hostnode.find('address')
+			address = (addressnode.attrib['addr'])
+			hoststatusnode = hostnode.find('status')
+			hoststatus = hoststatusnode.attrib['state']
 
 		if hoststatus =='up':
 			#find OS (first match only = highest accuracy)
