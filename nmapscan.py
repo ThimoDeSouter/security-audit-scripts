@@ -12,7 +12,7 @@ def get_nmap(options, ip):
     results = str(process.read())
     return results
 
-#output directory : /username/Desktop/audit-nmap-scans/
+#output directory : /username/Desktop/audit-scans/
 #create if not exists
 outputdir = os.environ['HOME']+'/Desktop/audit-scans/'
 

@@ -15,6 +15,9 @@ from host import Host
 from service import Service
 from vulnerability import Vulnerability
 
+from docx.oxml.ns import nsdecls
+from docx.oxml import parse_xml
+
 #init variables
 document = Document()
 hosts = []
@@ -30,7 +33,7 @@ def main():
 
 	#read all files from the folder that start with the date(user input)
 	audit_date = raw_input('please enter the audit date in format: yyyy-mm-dd: ')
-	#print 'audit date = ' + audit_date
+
 
 	#add nmap hosts
 	nmaphosts = add_hosts('nmap',audit_date)
@@ -39,7 +42,7 @@ def main():
 		print('no nmaphosts found, exiting')
 		exit()
 
-	print('please export the nessus scans as .nessus, to the ' + str(path) + ' folder and rename them so they start with the current date')
+	print('please export the nessus scans as .nessus, to the ' + str(path) + ' folder and rename them so they start with the current date in the format: yyyy-mm-dd')
 	cont = raw_input("press enter to continue")
 
 	#add nessus hosts
@@ -56,13 +59,13 @@ def main():
 		else:
 			hosts.append(nmaphost)
 
-	severity = raw_input("vulnerability severity should be at least? (1-9): ")
+	severity = raw_input("vulnerability severity should be at least? (0-10): ")
 
 	all_hosts_by_ip = []
 	#select hosts
 	print('all hosts in database: \n')
 	for host in hosts:
-		print ( str(host.ip) + '\n')
+		print ( str(host.ip) + '\r')
 		all_hosts_by_ip.append(host.ip)
 
 	print ("enter the hosts you want, 'all' to select all hosts, or 'stop' to stop")
@@ -75,12 +78,9 @@ def main():
 		if(item == 'all'):
 			selected_hosts = all_hosts_by_ip
 			break
-		selected_hosts.append(item)
+		else:
+			selected_hosts.append(item)
 
-
-	print('debug: selected_hosts ')
-	for sel_host in selected_hosts:
-		print str(sel_host)
 
 	build_table(hosts,severity,selected_hosts)
 
@@ -93,13 +93,11 @@ def find_host(hosts,ip):
 	foundHost = None
 	for host in hosts:
 		if(host.ip == ip):
-			print ('found match for ' + str(ip) )
 			foundHost = host
 	return foundHost
 
 
 def add_hosts(type,audit_date):
-	print('looking for ' + str(type) + ' hosts')
 	filetype = None
 	if(type) == "nmap":
 		filetype = ".xml"
@@ -110,12 +108,14 @@ def add_hosts(type,audit_date):
 		print 'Please run the nmapscan.py program first'
 		exit()
 
+	print ('processing...')
+
 	scans = []
 	for file in os.listdir(path):
 		if os.path.isfile(os.path.join(path,file)) and file.startswith(audit_date) and file.endswith(filetype):
 			scans.append(file)
 
-	print 'found ' + str(len(scans)) + ' scans'
+	print 'found ' + str(len(scans)) + ' ' + str(type) + ' scans'
 
 	hosts = []
 	for scan in scans:
@@ -140,7 +140,6 @@ def add_hosts(type,audit_date):
 			else:
 				hosts.append(hostlocal)
 
-	print('returning ' + str(len(hosts)) + ' unique ' + str(type) + ' hosts')
 	return hosts
 
 def build_table(hosts,severity,selected_hosts):
@@ -163,17 +162,32 @@ def build_table(hosts,severity,selected_hosts):
 
 		#info section
 		info_section = main_table.add_row()
-		info_section.cells[0].text = 'Ip: ' + str(host.ip) + '\n' + 'Hostname: ' + str(host.hostname) + ' \n' + 'Operating System: ' + str(host.os) + '\n' + 'MAC Address: ' + str(host.mac)
+
+		p_info = info_section.cells[0].paragraphs[0]
+		p_info.add_run('IP: ').bold = True
+		p_info.add_run(str(host.ip)+'\n')
+
+		p_info.add_run('Hostname: ').bold = True
+		p_info.add_run(str(host.hostname)+'\n')
+
+		p_info.add_run('Operating System: ').bold = True
+		p_info.add_run(str(host.os)+'\n')
+
+		p_info.add_run('MAC Address: ').bold = True
+		p_info.add_run(str(host.mac))
+
 
 		#open services text section
 		open_services_section = main_table.add_row()
-		open_services_field = open_services_section.cells[0]
-		open_services_field.text = 'Detected open services:'
-		open_services_run = open_services_field.paragraphs[0].runs[0]
-		open_services_run.font.bold = True
+		open_services_p = open_services_section.cells[0].paragraphs[0]
+		open_services_p.add_run('Detected Open Services:').bold = True
 
 		#services section
 		services_section = main_table.add_row()
+		remove_p = services_section.cells[0].paragraphs[0]
+		p = remove_p._element
+		p.getparent().remove(p)
+		p._p = p._element = None
 		services_table = services_section.cells[0].add_table(rows=0, cols=4)
 
 		#header row services
@@ -205,18 +219,21 @@ def build_table(hosts,severity,selected_hosts):
 			row.cells[1].text = service.port
 			row.cells[2].text = service.protocol
 			row.cells[3].text = str(service.product) + ' ' + str(service.extrainfo) + ' ' + str(service.version)
-
+			row.cells[3].text = row.cells[3].text.replace('None',' ')
 
 		#vulnerabilities text section
 		vulns_section = main_table.add_row()
-		vulns_field = vulns_section.cells[0]
-		vulns_field.text = 'Detected vulnerabilities: \n'
-		vulns_run = vulns_field.paragraphs[0].runs[0]
-		vulns_run.font.bold = True
+		vulns_p = vulns_section.cells[0].paragraphs[0]
+		vulns_p.add_run('Detected Vulnerabilities:').bold = True
 
 
 		#vulnerabilities section
 		vulnerabilities_section = main_table.add_row()
+		vuln_p_rem = vulnerabilities_section.cells[0].paragraphs[0]
+		p2 = vuln_p_rem._element
+		p2.getparent().remove(p2)
+		p2._p2 = p2._element = None
+
 		vulnerabilities_table = vulnerabilities_section.cells[0].add_table(rows=0,cols=2)
 		vulnerabilities_table.autofit = False
 		vulnerabilities_table.columns[0].width = Inches(1.5)
@@ -232,16 +249,61 @@ def build_table(hosts,severity,selected_hosts):
 		severity_run.font.bold = True
 
 		description_header = header_row.cells[1]
-		description_header.text = "Name"
+		description_header.text = "Description"
 		description_run = description_header.paragraphs[0].runs[0]
 		description_run.font.bold = True
 
 
+		vulnerabilities.sort(key=lambda x: x.severity, reverse=True)
 		for vulnerability in vulnerabilities:
 			if (vulnerability.severity >= severity):
 				row = vulnerabilities_table.add_row()
 				row.cells[0].text = vulnerability.severity
-				row.cells[1].text = vulnerability.name
+				#row.cells[0].add_paragraph( str(vulnerability.severity))
+
+				sev = int(vulnerability.severity)
+				#set vuln color
+				if( sev == 10): #critical
+					shading_elm = parse_xml(r'<w:shd {} w:fill="ff0000"/>'.format(nsdecls('w')))
+					row.cells[0]._tc.get_or_add_tcPr().append(shading_elm)
+
+				elif( sev <= 9 and sev >=7): #high
+					shading_elm = parse_xml(r'<w:shd {} w:fill="ffa500"/>'.format(nsdecls('w')))
+					row.cells[0]._tc.get_or_add_tcPr().append(shading_elm)
+
+				elif( sev <= 6 and sev >=4): #medium
+					shading_elm = parse_xml(r'<w:shd {} w:fill="ffff00"/>'.format(nsdecls('w')))
+					row.cells[0]._tc.get_or_add_tcPr().append(shading_elm)
+
+				elif( sev <=3 and sev >=2): #low
+					shading_elm = parse_xml(r'<w:shd {} w:fill="00ff00"/>'.format(nsdecls('w')))
+					row.cells[0]._tc.get_or_add_tcPr().append(shading_elm)
+
+				else:
+					shading_elm = parse_xml(r'<w:shd {} w:fill="0000ff"/>'.format(nsdecls('w')))
+					row.cells[0]._tc.get_or_add_tcPr().append(shading_elm)
+
+
+
+				#p = row.cells[1].add_paragraph()
+				p = row.cells[1].paragraphs[0]
+				p.add_run('Name: ').bold = True
+				p.add_run(str(vulnerability.name)+'\n')
+
+				p.add_run('Synopsis: ').bold = True
+				p.add_run(str(vulnerability.synopsis)+'\n')
+
+				p.add_run('CVE: ').bold = True
+				p.add_run(str(vulnerability.cve)+'\n')
+
+				p.add_run('CVE Date: ').bold = True
+				p.add_run(str(vulnerability.pub_date)+'\n')
+
+				p.add_run('Score: ').bold = True
+				p.add_run(str(vulnerability.base_score)+'\n')
+
+				p.add_run('Solution: ').bold = True
+				p.add_run(str(vulnerability.solution))
 
 		document.add_paragraph("")
 	return
