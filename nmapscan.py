@@ -1,16 +1,22 @@
+#!/usr/bin/python
 import os
 import datetime
 import time
+import io
+import subprocess
 
 today = datetime.date.today()
 timestamp = ( str(today.year) + '-' + str(today.month) + '-' + str(today.day))
 print 'DEBUG, timestamp = ' + str(timestamp)
 
 def get_nmap(options, ip):
-    command = "nmap " + options + " " + ip;
-    process = os.popen(command)
-    results = str(process.read())
-    return results
+	command = "nmap " + options + " --stats-every 20s " + ip;
+	proc = subprocess.Popen([command],stdout=subprocess.PIPE, shell=True)
+	for line in iter(proc.stdout.readline,''):
+		if( line.startswith('NSE Timing') or line.startswith('Ping Scan Timing') or line.startswith('Stats') ):
+			print(line)
+
+	return
 
 #output directory : /username/Desktop/audit-scans/
 #create if not exists
