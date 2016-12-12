@@ -1,9 +1,5 @@
 #!/usr/bin/python
 
-# requirements:
-#	- python-docx
-#	-elementtree
-
 import os
 import time
 import elementtree
@@ -27,6 +23,8 @@ path = os.environ['HOME']+'/Desktop/audit-scans/'
 def main():
 
 	print("Welcome to the Audit Report Builder\r\n")
+	print("\n")
+	print("Run this after completing the nmapscan and nessusscan programs")
 
 	date = time.strftime("%d/%m/%Y")
 	school_name = raw_input("Please enter the school name: ")
@@ -41,9 +39,6 @@ def main():
 	if( len(nmaphosts) == 0):
 		print('no nmaphosts found, exiting')
 		exit()
-
-	print('please export the nessus scans as .nessus, to the ' + str(path) + ' folder and rename them so they start with the current date in the format: yyyy-mm-dd')
-	cont = raw_input("press enter to continue")
 
 	#add nessus hosts
 	nessushosts = add_hosts('nessus',audit_date)
@@ -105,7 +100,7 @@ def add_hosts(type,audit_date):
 		filetype = ".nessus"
 
 	if not os.path.exists(path):
-		print 'Please run the nmapscan.py program first'
+		print 'Please run nmapscan or nessusscan first'
 		exit()
 
 	print ('processing...')
