@@ -5,6 +5,8 @@ import time
 import io
 import subprocess
 
+#Thomas init
+
 today = datetime.date.today()
 timestamp = ( str(today.year) + '-' + str(today.month) + '-' + str(today.day))
 print 'DEBUG, timestamp = ' + str(timestamp)
