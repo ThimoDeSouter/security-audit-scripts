@@ -249,14 +249,14 @@ def build_table(hosts,severity,selected_hosts):
 		description_run.font.bold = True
 
 
-		vulnerabilities.sort(key=lambda x: x.severity, reverse=True)
+		vulnerabilities.sort(key=lambda x: x.base_score, reverse=True)
 		for vulnerability in vulnerabilities:
-			if (vulnerability.severity >= severity):
+			if (vulnerability.base_score >= severity):
 				row = vulnerabilities_table.add_row()
 				row.cells[0].text = vulnerability.severity
 				#row.cells[0].add_paragraph( str(vulnerability.severity))
 
-				sev = int(vulnerability.severity)
+				sev = int(vulnerability.base_score)
 				#set vuln color
 				if( sev == 10): #critical
 					shading_elm = parse_xml(r'<w:shd {} w:fill="ff0000"/>'.format(nsdecls('w')))
