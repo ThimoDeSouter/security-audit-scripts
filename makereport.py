@@ -22,8 +22,7 @@ path = os.environ['HOME']+'/Desktop/audit-scans/'
 
 def main():
 
-	print("Welcome to the Audit Report Builder\r\n")
-	print("\n")
+	print("Welcome to the Audit Report Builder\n")
 	print("Run this after completing the nmapscan and nessusscan programs")
 
 	date = time.strftime("%d/%m/%Y")
@@ -54,7 +53,7 @@ def main():
 		else:
 			hosts.append(nmaphost)
 
-	severity = raw_input("vulnerability severity should be at least? (0-10): ")
+	severity = float(raw_input("vulnerability severity should be at least? (0.0-10.0): "))
 
 	all_hosts_by_ip = []
 	#select hosts
@@ -76,7 +75,7 @@ def main():
 		else:
 			selected_hosts.append(item)
 
-
+	print 'generating report...'
 	build_table(hosts,severity,selected_hosts)
 
 	document.save(os.environ['HOME'] + '/Desktop/audit-report-' + school_name + '.docx')
@@ -103,14 +102,14 @@ def add_hosts(type,audit_date):
 		print 'Please run nmapscan or nessusscan first'
 		exit()
 
-	print ('processing...')
-
 	scans = []
 	for file in os.listdir(path):
 		if os.path.isfile(os.path.join(path,file)) and file.startswith(audit_date) and file.endswith(filetype):
 			scans.append(file)
 
 	print 'found ' + str(len(scans)) + ' ' + str(type) + ' scans'
+
+	print ('processing...')
 
 	hosts = []
 	for scan in scans:
@@ -248,33 +247,32 @@ def build_table(hosts,severity,selected_hosts):
 		description_run = description_header.paragraphs[0].runs[0]
 		description_run.font.bold = True
 
-
-		vulnerabilities.sort(key=lambda x: x.base_score, reverse=True)
+		vulnerabilities.sort(key=lambda x: float(x.base_score), reverse=True)
 		for vulnerability in vulnerabilities:
 			if (vulnerability.base_score >= severity):
 				row = vulnerabilities_table.add_row()
-				row.cells[0].text = vulnerability.severity
-				#row.cells[0].add_paragraph( str(vulnerability.severity))
+				row.cells[0].text = str(vulnerability.base_score)
 
-				sev = int(vulnerability.base_score)
+				sev = float(vulnerability.base_score)
+
 				#set vuln color
-				if( sev == 10): #critical
+				if( sev >= 9.5): #critical
 					shading_elm = parse_xml(r'<w:shd {} w:fill="ff0000"/>'.format(nsdecls('w')))
 					row.cells[0]._tc.get_or_add_tcPr().append(shading_elm)
 
-				elif( sev <= 9 and sev >=7): #high
+				elif( sev <= 9.4 and sev >=7.6): #high
+					shading_elm = parse_xml(r'<w:shd {} w:fill="ee7600"/>'.format(nsdecls('w')))
+					row.cells[0]._tc.get_or_add_tcPr().append(shading_elm)
+
+				elif( sev <= 7.5 and sev >=4.0): #medium
 					shading_elm = parse_xml(r'<w:shd {} w:fill="ffa500"/>'.format(nsdecls('w')))
 					row.cells[0]._tc.get_or_add_tcPr().append(shading_elm)
 
-				elif( sev <= 6 and sev >=4): #medium
-					shading_elm = parse_xml(r'<w:shd {} w:fill="ffff00"/>'.format(nsdecls('w')))
-					row.cells[0]._tc.get_or_add_tcPr().append(shading_elm)
-
-				elif( sev <=3 and sev >=2): #low
+				elif( sev <=3.9 and sev >=1.1): #low
 					shading_elm = parse_xml(r'<w:shd {} w:fill="00ff00"/>'.format(nsdecls('w')))
 					row.cells[0]._tc.get_or_add_tcPr().append(shading_elm)
 
-				else:
+				elif( sev <=1.0): #info
 					shading_elm = parse_xml(r'<w:shd {} w:fill="0000ff"/>'.format(nsdecls('w')))
 					row.cells[0]._tc.get_or_add_tcPr().append(shading_elm)
 
@@ -295,7 +293,7 @@ def build_table(hosts,severity,selected_hosts):
 				p.add_run(str(vulnerability.pub_date)+'\n')
 
 				p.add_run('Score: ').bold = True
-				p.add_run(str(vulnerability.base_score)+'\n')
+				p.add_run(str(vulnerability.severity)+'\n')
 
 				p.add_run('Solution: ').bold = True
 				p.add_run(str(vulnerability.solution))
