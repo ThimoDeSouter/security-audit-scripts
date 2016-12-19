@@ -50,21 +50,31 @@ def populateList(root,hosts):
 
 		for reportitem in reportitems:
 
-			port=name=protocol=severity=description=cve=base_score=synopsis=solution=pub_date = None
+			port=name=protocol=severity=description=cve=synopsis=solution=pub_date = None
+			base_score = 0.0
 
-			try:
-				port = reportitem.attrib['port']
-				name = reportitem.attrib['pluginName']
-				protocol = reportitem.attrib['protocol']
-				severity = reportitem.attrib['severity']
-				description = reportitem.find('description').text
-				cve = reportitem.find('cve').text
-				base_score = reportitem.find('cvss_base_score').text
-				synopsis = reportitem.find('synopsis').text
-				solution = reportitem.find('solution').text
-				pub_date = reportitem.find('vuln_publication_date').text
-			except:
-				pass
+			port = reportitem.attrib['port']
+			name = reportitem.attrib['pluginName']
+			protocol = reportitem.attrib['protocol']
+			severity = reportitem.attrib['severity']
+			description = reportitem.find('description').text
+			synopsis = reportitem.find('synopsis').text
+			solution = reportitem.find('solution').text
+
+			cve_obj = reportitem.find('cve')
+			if cve_obj is not None:
+				cve = cve_obj.text
+
+			base_score_obj = reportitem.find('cvss_base_score')
+			if base_score_obj is not None:
+				base_score = base_score_obj.text
+
+
+			pub_date_obj = reportitem.find('vuln_publication_date')
+			if pub_date_obj is not None:
+				pub_date = pub_date_obj.text
+
+
 
 			vuln = Vulnerability()
 			vuln.name = name
