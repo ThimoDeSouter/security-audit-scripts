@@ -1,4 +1,5 @@
-A collection of python scripts that can help to automate the process of a security audit. In particular scanning and generating a report.
+A collection of python scripts that can help to automate the process of a security audit. 
+In particular scanning and generating a report.
 
 ###Requirements:
 software:
