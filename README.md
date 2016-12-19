@@ -1,6 +1,7 @@
 A collection of python scripts that can help to automate the process of a security audit. 
 In particular scanning and generating a report.
 
+
 ###Requirements:
 software:
   - python
@@ -10,12 +11,10 @@ software:
 python modules:
   - elementtree
   - python-docx
-    
-	
-	
+
+
 ###Usage:
-Run 'nmapscan.py' & 'nessusscan.py', follow on-screen instructions.
-(It's recommended to use option 4 in nmapscan.py)
+Run 'nmapscan.py' & 'nessusscan.py', follow on-screen instructions.(It's recommended to use option 4 in nmapscan.py)
 Once all scans are done, run 'makereport.py'
 
 
@@ -26,3 +25,5 @@ Once all scans are done, run 'makereport.py'
 'tar xvzf python-docx-0.8.6.tar.gz' --> 'cd python-docx-0.8.6' --> 'python setup.py install'   
 
 Thanks go out to Yellis for supplying the original nmap script.
+
+CCCP-Howest
