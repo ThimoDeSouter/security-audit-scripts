@@ -13,6 +13,7 @@ from vulnerability import Vulnerability
 
 from docx.oxml.ns import nsdecls
 from docx.oxml import parse_xml
+from docx.enum.text import WD_ALIGN_PARAGRAPH
 
 #init variables
 document = Document()
@@ -76,6 +77,39 @@ def main():
 			selected_hosts.append(item)
 
 	print 'generating report...'
+
+	#build front page
+	howest_img_p = document.add_paragraph()
+	howest_img_p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+	img_r = howest_img_p.add_run()
+	img_r.add_picture('howest.jpg', width=Inches(4.9))
+
+	front_page1 = document.add_paragraph("Computer & CyberCrime Professional\n\n")
+	front_page1.alignment = WD_ALIGN_PARAGRAPH.CENTER
+	front_page1.style = document.styles['Heading 5']
+
+	front_page = document.add_paragraph("Audit report for:")
+	front_page.alignment = WD_ALIGN_PARAGRAPH.CENTER
+	front_page.style = document.styles['Heading 2']
+
+	front_page0 = document.add_paragraph(str(school_name))
+	front_page0.alignment = WD_ALIGN_PARAGRAPH.CENTER
+	front_page0.style = document.styles['Heading 1']
+
+
+	front_page2 = document.add_paragraph("Conducted on: " +str(audit_date))
+	front_page2.alignment = WD_ALIGN_PARAGRAPH.CENTER
+	front_page2.style = document.styles['Heading 3']
+
+	document.add_paragraph("\n\n\n\n\n\n\n\n\n\n\n\n\n")
+
+	front_page3 = document.add_paragraph("Report generated with: \n http://github.com/thimoDeSouter/security-audit-scripts")
+	front_page3.alignment = WD_ALIGN_PARAGRAPH.CENTER
+	front_page3.style = document.styles['Heading 6']
+
+	document.add_page_break()
+	#end build front page
+
 	build_table(hosts,severity,selected_hosts)
 
 	document.save(os.environ['HOME'] + '/Desktop/audit-report-' + school_name + '.docx')
