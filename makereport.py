@@ -3,6 +3,7 @@
 import os
 import sys
 import time
+import subprocess
 import elementtree
 from docx import Document
 from docx.shared import Inches
@@ -28,10 +29,10 @@ def main():
 	print("Run this after completing the nmapscan and nessusscan programs")
 
 	date = time.strftime("%d/%m/%Y")
-	school_name = raw_input("Please enter the school name: ")
+	school_name = raw_input("School name: ")
 
 	#read all files from the folder that start with the date(user input)
-	audit_date = raw_input('please enter the audit date in format: yyyy-mm-dd: ')
+	audit_date = raw_input('Audit date (in format: yyyy-mm-dd): ')
 
 
 	#add nmap hosts
@@ -44,28 +45,27 @@ def main():
 	#add nessus hosts
 	nessushosts = add_hosts('nessus',audit_date)
 
-	#mash hosts info together
+	#fuse hosts info together
 	for nmaphost in nmaphosts:
 		current = find_host(nessushosts,nmaphost.ip)
 		if current is not None:
 			if (nmaphost.mac is None): nmaphost.mac = current.mac
 			if (nmaphost.os is None): nmaphost.os = current.os
+			if (nmaphost.hostname is None): nmaphost.hostname = current.hostname
 			nmaphost.vulnerabilities = current.vulnerabilities
 			hosts.append(nmaphost)
 		else:
 			hosts.append(nmaphost)
 
 	nrOfServices = int(raw_input("Minimum number of detected services? (nmap): "))
-	severity = float(raw_input("vulnerability severity should be at least? (0.0 - 10.0): "))
+	severity = float(raw_input("Vulnerability severity should be at least? (0.0 - 10.0): "))
 
-	all_hosts_by_ip = []
 	#select hosts
-	print('all hosts in database: \n')
+	print('All hosts in database: \n')
 	for host in hosts:
 		print ( str(host.ip) + '\r')
-		all_hosts_by_ip.append(host.ip)
 
-	print ("enter the hosts you want, 'all' to select all hosts, or 'stop' to stop")
+	print ("Enter the hosts you want to display in the report, 'all' to select all hosts, or 'stop' to stop")
 	selected_hosts = []
 	maxLength = len(hosts)
 	while len(selected_hosts) < maxLength:
@@ -73,13 +73,45 @@ def main():
 		if (item == 'stop'):
 			break
 		if(item == 'all'):
-			selected_hosts = all_hosts_by_ip
+			selected_hosts = hosts
 			break
 		else:
-			selected_hosts.append(item)
+			selected_hosts.append(find_host(hosts,item))
+
+	print (str(len(selected_hosts)) + " hosts selected")
+
+	#nikto
+	web_hosts = []
+	print("Searching for hosts that run a webserver...")
+	#loop through all hosts and check if port 80 or 443 is open
+	addhost = False
+	for host in selected_hosts:
+		for service in host.services:
+			if (service.port == '80' or service.port == '443' ):
+				addhost = True
+
+		if(addhost):
+			web_hosts.append(host)
+
+	print('found ' + str(len(web_hosts))+' webhosts')
+
+	print ("You can gather information about the webserver(s) by running nikto.\nNote that you have to be connected to the local network for this to work.")
+	run_nikto = raw_input("Run nikto on these hosts? (y/n): ")
+	if(run_nikto =="y"):
+		for host in web_hosts:
+
+			#TODO: make it async
+			print("running nikto on host: " + str(host.ip))
+			command="nikto -h " + host.ip
+			proc = subprocess.Popen([command],stdout=subprocess.PIPE,shell=True)
+			nikto_out = proc.communicate()
+
+			nikhost = find_host(selected_hosts,host.ip)
+			nikhost.nikto = nikto_out
+	#end nikto
+
 
 	print 'generating report...'
-
 	#build front page
 	howest_img_p = document.add_paragraph()
 	howest_img_p.alignment = WD_ALIGN_PARAGRAPH.CENTER
@@ -112,7 +144,7 @@ def main():
 	document.add_page_break()
 	#end build front page
 
-	build_table(hosts,severity,selected_hosts,nrOfServices)
+	build_table(severity,selected_hosts,nrOfServices)
 
 	document.save(os.environ['HOME'] + '/Desktop/audit-report-' + school_name + '.docx')
 	print 'audit-report-'+school_name+ '.docx saved in' + os.environ['HOME']+'/Desktop'
@@ -172,15 +204,21 @@ def add_hosts(type,audit_date):
 
 	return hosts
 
-def build_table(hosts,severity,selected_hosts,nrOfServices):
+def build_table(severity,selected_hosts,nrOfServices):
 
 	#select hosts
 	myhosts = []
-	for shost in selected_hosts:
-		x = find_host(hosts,shost)
-		if( (x is not None) and (len(x.services) >= nrOfServices) ):
-			myhosts.append(x)
+	for host in selected_hosts:
+		addhost = False
+		if( (host is not None) and (len(host.services) >= nrOfServices)):
+			for vuln in host.vulnerabilities:
+				if float(vuln.base_score) >= float(severity):
+					addhost = True
 
+		if(addhost):
+			myhosts.append(host)
+
+	print (str(len(myhosts)) + " hosts meet the criteria")
 	hostcount_total = len(myhosts)
 	count = 0
 	for host in myhosts:
@@ -263,7 +301,7 @@ def build_table(hosts,severity,selected_hosts,nrOfServices):
 		if ( (len(vulnerabilities) >= 1)):
 			vulnprint = False
 			for vuln in vulnerabilities:
-				if( vuln.base_score >= severity):
+				if( float(vuln.base_score) >= float(severity)):
 					vulnprint = True
 
 			if(vulnprint):
@@ -303,7 +341,7 @@ def build_table(hosts,severity,selected_hosts,nrOfServices):
 				#actual vuls
 				vulnerabilities.sort(key=lambda x: float(x.base_score), reverse=True)
 				for vulnerability in vulnerabilities:
-					if (vulnerability.base_score >= severity):
+					if ( float(vulnerability.base_score) >= severity):
 						row = vulnerabilities_table.add_row()
 						row.cells[0].text = str(vulnerability.base_score)
 
@@ -351,6 +389,12 @@ def build_table(hosts,severity,selected_hosts,nrOfServices):
 
 						p.add_run('Solution: ').bold = True
 						p.add_run(str(vulnerability.solution))
+
+
+		#nikto
+		#TODO: clean up nikto output
+		if host.nikto is not None:
+			document.add_paragraph("\n" + "Nikto info:\n" + str(host.nikto))
 
 		document.add_paragraph("")
 	return
