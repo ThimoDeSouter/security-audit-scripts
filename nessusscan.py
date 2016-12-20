@@ -5,6 +5,8 @@ import time
 import sys
 import getpass
 import os
+import subprocess
+
 from scan import Scan
 
 verify = False
@@ -211,6 +213,14 @@ if __name__ == "__main__" :
 
 
 	print 'Welcome to the nessus scan tool'
+
+	#start nessus
+	print ("starting nessus")
+	command="/etc/init.d/nessusd start > /dev/null"
+        proc = subprocess.Popen([command],stdout=subprocess.PIPE,shell=True)
+        out = proc.communicate()
+
+
 	print 'gathering variables:'
 	username = raw_input("Nessus Username: ")
 	password = getpass.getpass("Nessus Password: ")
