@@ -7,6 +7,7 @@ class Host:
 		self.os = os
 		self.hostname = hostname
 		self.mac = mac
+		self.nikto = None
 	def addService(self,service):
 		self.services.append(service)
 	def addVulnerability(self,vulnerability):
