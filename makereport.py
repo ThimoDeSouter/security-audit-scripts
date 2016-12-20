@@ -1,6 +1,7 @@
 #!/usr/bin/python
 
 import os
+import sys
 import time
 import elementtree
 from docx import Document
@@ -22,8 +23,8 @@ path = os.environ['HOME']+'/Desktop/audit-scans/'
 
 
 def main():
-
-	print("Welcome to the Audit Report Builder\n")
+	os.system('clear')
+	print("Welcome to the Audit Report Builder")
 	print("Run this after completing the nmapscan and nessusscan programs")
 
 	date = time.strftime("%d/%m/%Y")
@@ -54,7 +55,8 @@ def main():
 		else:
 			hosts.append(nmaphost)
 
-	severity = float(raw_input("vulnerability severity should be at least? (0.0-10.0): "))
+	nrOfServices = int(raw_input("Minimum number of detected services? (nmap): "))
+	severity = float(raw_input("vulnerability severity should be at least? (0.0 - 10.0): "))
 
 	all_hosts_by_ip = []
 	#select hosts
@@ -110,7 +112,7 @@ def main():
 	document.add_page_break()
 	#end build front page
 
-	build_table(hosts,severity,selected_hosts)
+	build_table(hosts,severity,selected_hosts,nrOfServices)
 
 	document.save(os.environ['HOME'] + '/Desktop/audit-report-' + school_name + '.docx')
 	print 'audit-report-'+school_name+ '.docx saved in' + os.environ['HOME']+'/Desktop'
@@ -170,16 +172,24 @@ def add_hosts(type,audit_date):
 
 	return hosts
 
-def build_table(hosts,severity,selected_hosts):
+def build_table(hosts,severity,selected_hosts,nrOfServices):
 
 	#select hosts
 	myhosts = []
 	for shost in selected_hosts:
 		x = find_host(hosts,shost)
-		if(x is not None):
+		if( (x is not None) and (len(x.services) >= nrOfServices) ):
 			myhosts.append(x)
 
+	hostcount_total = len(myhosts)
+	count = 0
 	for host in myhosts:
+		#progress
+		count +=1
+		sys.stdout.write("\rProcessed host({0} of ".format(count))
+		sys.stdout.flush()
+		print(str(hostcount_total)+")")
+
 		services = host.services
 		vulnerabilities = host.vulnerabilities
 		rowcount = len(services)
@@ -249,88 +259,98 @@ def build_table(hosts,severity,selected_hosts):
 			row.cells[3].text = str(service.product) + ' ' + str(service.extrainfo) + ' ' + str(service.version)
 			row.cells[3].text = row.cells[3].text.replace('None',' ')
 
-		#vulnerabilities text section
-		vulns_section = main_table.add_row()
-		vulns_p = vulns_section.cells[0].paragraphs[0]
-		vulns_p.add_run('Detected Vulnerabilities:').bold = True
+
+		if ( (len(vulnerabilities) >= 1)):
+			vulnprint = False
+			for vuln in vulnerabilities:
+				if( vuln.base_score >= severity):
+					vulnprint = True
+
+			if(vulnprint):
+				#vulnerabilities text section
+				vulns_section = main_table.add_row()
+				vulns_p = vulns_section.cells[0].paragraphs[0]
+				vulns_p.add_run('Detected Vulnerabilities:').bold = True
 
 
-		#vulnerabilities section
-		vulnerabilities_section = main_table.add_row()
-		vuln_p_rem = vulnerabilities_section.cells[0].paragraphs[0]
-		p2 = vuln_p_rem._element
-		p2.getparent().remove(p2)
-		p2._p2 = p2._element = None
+				#vulnerabilities section
+				vulnerabilities_section = main_table.add_row()
+				vuln_p_rem = vulnerabilities_section.cells[0].paragraphs[0]
+				p2 = vuln_p_rem._element
+				p2.getparent().remove(p2)
+				p2._p2 = p2._element = None
 
-		vulnerabilities_table = vulnerabilities_section.cells[0].add_table(rows=0,cols=2)
-		vulnerabilities_table.autofit = False
-		vulnerabilities_table.columns[0].width = Inches(1.5)
-		vulnerabilities_table.columns[1].width = Inches(4.5)
-
-
-		#header row vulns
-		header_row = vulnerabilities_table.add_row()
-
-		severity_header = header_row.cells[0]
-		severity_header.text = "Severity"
-		severity_run = severity_header.paragraphs[0].runs[0]
-		severity_run.font.bold = True
-
-		description_header = header_row.cells[1]
-		description_header.text = "Description"
-		description_run = description_header.paragraphs[0].runs[0]
-		description_run.font.bold = True
-
-		vulnerabilities.sort(key=lambda x: float(x.base_score), reverse=True)
-		for vulnerability in vulnerabilities:
-			if (vulnerability.base_score >= severity):
-				row = vulnerabilities_table.add_row()
-				row.cells[0].text = str(vulnerability.base_score)
-
-				sev = float(vulnerability.base_score)
-
-				#set vuln color
-				if( sev >= 9.5): #critical
-					shading_elm = parse_xml(r'<w:shd {} w:fill="ff0000"/>'.format(nsdecls('w')))
-					row.cells[0]._tc.get_or_add_tcPr().append(shading_elm)
-
-				elif( sev <= 9.4 and sev >=7.6): #high
-					shading_elm = parse_xml(r'<w:shd {} w:fill="ee7600"/>'.format(nsdecls('w')))
-					row.cells[0]._tc.get_or_add_tcPr().append(shading_elm)
-
-				elif( sev <= 7.5 and sev >=4.0): #medium
-					shading_elm = parse_xml(r'<w:shd {} w:fill="ffa500"/>'.format(nsdecls('w')))
-					row.cells[0]._tc.get_or_add_tcPr().append(shading_elm)
-
-				elif( sev <=3.9 and sev >=1.1): #low
-					shading_elm = parse_xml(r'<w:shd {} w:fill="00ff00"/>'.format(nsdecls('w')))
-					row.cells[0]._tc.get_or_add_tcPr().append(shading_elm)
-
-				elif( sev <=1.0): #info
-					shading_elm = parse_xml(r'<w:shd {} w:fill="0000ff"/>'.format(nsdecls('w')))
-					row.cells[0]._tc.get_or_add_tcPr().append(shading_elm)
+				vulnerabilities_table = vulnerabilities_section.cells[0].add_table(rows=0,cols=2)
+				vulnerabilities_table.autofit = False
+				vulnerabilities_table.columns[0].width = Inches(1.5)
+				vulnerabilities_table.columns[1].width = Inches(4.5)
 
 
+				#header row vulns
+				header_row = vulnerabilities_table.add_row()
 
-				#p = row.cells[1].add_paragraph()
-				p = row.cells[1].paragraphs[0]
-				p.add_run('Name: ').bold = True
-				p.add_run(str(vulnerability.name)+'\n')
+				severity_header = header_row.cells[0]
+				severity_header.text = "Severity"
+				severity_run = severity_header.paragraphs[0].runs[0]
+				severity_run.font.bold = True
 
-				p.add_run('Synopsis: ').bold = True
-				p.add_run(str(vulnerability.synopsis)+'\n')
+				description_header = header_row.cells[1]
+				description_header.text = "Description"
+				description_run = description_header.paragraphs[0].runs[0]
+				description_run.font.bold = True
 
-				p.add_run('CVE: ').bold = True
-				p.add_run(str(vulnerability.cve)+'\n')
 
-				p.add_run('CVE Date: ').bold = True
-				p.add_run(str(vulnerability.pub_date)+'\n')
+				#actual vuls
+				vulnerabilities.sort(key=lambda x: float(x.base_score), reverse=True)
+				for vulnerability in vulnerabilities:
+					if (vulnerability.base_score >= severity):
+						row = vulnerabilities_table.add_row()
+						row.cells[0].text = str(vulnerability.base_score)
 
-				p.add_run('Score: ').bold = True
-				p.add_run(str(vulnerability.severity)+'\n')
+						sev = float(vulnerability.base_score)
 
-				p.add_run('Solution: ').bold = True
-				p.add_run(str(vulnerability.solution))
+						#set vuln color
+						if( sev >= 9.5): #critical
+							shading_elm = parse_xml(r'<w:shd {} w:fill="ff0000"/>'.format(nsdecls('w')))
+							row.cells[0]._tc.get_or_add_tcPr().append(shading_elm)
+
+						elif( sev <= 9.4 and sev >=7.6): #high
+							shading_elm = parse_xml(r'<w:shd {} w:fill="ee7600"/>'.format(nsdecls('w')))
+							row.cells[0]._tc.get_or_add_tcPr().append(shading_elm)
+
+						elif( sev <= 7.5 and sev >=4.0): #medium
+							shading_elm = parse_xml(r'<w:shd {} w:fill="ffa500"/>'.format(nsdecls('w')))
+							row.cells[0]._tc.get_or_add_tcPr().append(shading_elm)
+
+						elif( sev <=3.9 and sev >=1.1): #low
+							shading_elm = parse_xml(r'<w:shd {} w:fill="00ff00"/>'.format(nsdecls('w')))
+							row.cells[0]._tc.get_or_add_tcPr().append(shading_elm)
+
+						elif( sev <=1.0): #info
+							shading_elm = parse_xml(r'<w:shd {} w:fill="0000ff"/>'.format(nsdecls('w')))
+							row.cells[0]._tc.get_or_add_tcPr().append(shading_elm)
+
+
+
+						#p = row.cells[1].add_paragraph()
+						p = row.cells[1].paragraphs[0]
+						p.add_run('Name: ').bold = True
+						p.add_run(str(vulnerability.name)+'\n')
+
+						p.add_run('Synopsis: ').bold = True
+						p.add_run(str(vulnerability.synopsis)+'\n')
+
+						p.add_run('CVE: ').bold = True
+						p.add_run(str(vulnerability.cve)+'\n')
+
+						p.add_run('CVE Date: ').bold = True
+						p.add_run(str(vulnerability.pub_date)+'\n')
+
+						p.add_run('Score: ').bold = True
+						p.add_run(str(vulnerability.severity)+'\n')
+
+						p.add_run('Solution: ').bold = True
+						p.add_run(str(vulnerability.solution))
 
 		document.add_paragraph("")
 	return
