@@ -12,6 +12,7 @@ import parsenmap
 from host import Host
 from service import Service
 from vulnerability import Vulnerability
+import glob
 
 from docx.oxml.ns import nsdecls
 from docx.oxml import parse_xml
@@ -32,8 +33,35 @@ def main():
 	school_name = raw_input("School name: ")
 
 	#read all files from the folder that start with the date(user input)
-	audit_date = raw_input('Audit date (in format: yyyy-mm-dd): ')
+	#show suggestions
+	allfiles = glob.glob(path+"*.xml")
+	datelist = []
+	for file in allfiles:
+		datefile = file.replace(path,'')
+		groups = datefile.split('-')
+		date = '-'.join(groups[:3])
+		datelist.append(date)
 
+	#remove duplicated
+	unique_datelist = []
+	for date in datelist:
+		if not (date in unique_datelist):
+			unique_datelist.append(date)
+
+	print ("Available dates are: ")
+	for date in unique_datelist:
+		print ("\t" + str(date))
+
+
+	#check if good date
+	valid_date = False
+	while not (valid_date):
+		audit_date = raw_input('Audit date (in format: yyyy-mm-dd): ')
+		if not (audit_date in unique_datelist):
+			print 'not a valid date, see available dates list'
+			valid_date = False
+		else:
+			valid_date = True
 
 	#add nmap hosts
 	nmaphosts = add_hosts('nmap',audit_date)
@@ -57,61 +85,39 @@ def main():
 		else:
 			hosts.append(nmaphost)
 
+
+	#select hosts
+	print('All hosts in database:')
+	for host in hosts:
+		print ('\t' + str(host.ip))
+
 	nrOfServices = int(raw_input("Minimum number of detected services? (nmap): "))
 	severity = float(raw_input("Vulnerability severity should be at least? (0.0 - 10.0): "))
 
-	#select hosts
-	print('All hosts in database: \n')
-	for host in hosts:
-		print ( str(host.ip) + '\r')
+	#check for criteria end display new list of hosts
+	determined_hosts = determine_hosts(hosts, nrOfServices,severity)
+
+	print('Hosts that match the criteria:')
+	for host in determined_hosts:
+		print(str(host.ip))
+
 
 	print ("Enter the hosts you want to display in the report, 'all' to select all hosts, or 'stop' to stop")
 	selected_hosts = []
-	maxLength = len(hosts)
+	maxLength = len(determined_hosts)
 	while len(selected_hosts) < maxLength:
 		item = raw_input("Host: ")
 		if (item == 'stop'):
 			break
 		if(item == 'all'):
-			selected_hosts = hosts
+			selected_hosts = determined_hosts
 			break
 		else:
 			selected_hosts.append(find_host(hosts,item))
 
 	print (str(len(selected_hosts)) + " hosts selected")
 
-	#nikto
-	web_hosts = []
-	print("Searching for hosts that run a webserver...")
-	#loop through all hosts and check if port 80 or 443 is open
-	addhost = False
-	for host in selected_hosts:
-		for service in host.services:
-			if (service.port == '80' or service.port == '443' ):
-				addhost = True
 
-		if(addhost):
-			web_hosts.append(host)
-
-	print('found ' + str(len(web_hosts))+' webhosts')
-
-	print ("You can gather information about the webserver(s) by running nikto.\nNote that you have to be connected to the local network for this to work.")
-	run_nikto = raw_input("Run nikto on these hosts? (y/n): ")
-	if(run_nikto =="y"):
-		for host in web_hosts:
-
-			#TODO: make it async
-			print("running nikto on host: " + str(host.ip))
-			command="nikto -h " + host.ip
-			proc = subprocess.Popen([command],stdout=subprocess.PIPE,shell=True)
-			nikto_out = proc.communicate()
-
-			nikhost = find_host(selected_hosts,host.ip)
-			nikhost.nikto = nikto_out
-	#end nikto
-
-
-	print 'generating report...'
 	#build front page
 	howest_img_p = document.add_paragraph()
 	howest_img_p.alignment = WD_ALIGN_PARAGRAPH.CENTER
@@ -144,11 +150,29 @@ def main():
 	document.add_page_break()
 	#end build front page
 
-	build_table(severity,selected_hosts,nrOfServices)
+	build_table(selected_hosts,severity)
 
 	document.save(os.environ['HOME'] + '/Desktop/audit-report-' + school_name + '.docx')
 	print 'audit-report-'+school_name+ '.docx saved in' + os.environ['HOME']+'/Desktop'
 	return
+
+def displayNiktoProcess(exitlist):
+	os.system('clear')
+	print ('Running Nikto scans...\n')
+	print ('\033[1m' +'HOST \t\t ' + '\033[1m'+ 'STATUS')
+	for ip,code in exitlist.items():
+		status = "x"
+		if(code is None): status = "Working"
+		elif(code is 0): status = "Done"
+		print '\033[0m' + ip + " \t " + status
+
+	count = 20
+	while(count >=0):
+    		sys.stdout.write("\rRefresh in:{0}>>".format(count))
+    		sys.stdout.flush()
+		count -=1
+    		time.sleep(1)
+
 
 
 def find_host(hosts,ip):
@@ -204,11 +228,9 @@ def add_hosts(type,audit_date):
 
 	return hosts
 
-def build_table(severity,selected_hosts,nrOfServices):
-
-	#select hosts
+def determine_hosts(hosts, nrOfServices, severity):
 	myhosts = []
-	for host in selected_hosts:
+	for host in hosts:
 		addhost = False
 		if( (host is not None) and (len(host.services) >= nrOfServices)):
 			for vuln in host.vulnerabilities:
@@ -217,8 +239,67 @@ def build_table(severity,selected_hosts,nrOfServices):
 
 		if(addhost):
 			myhosts.append(host)
+	return myhosts
 
-	print (str(len(myhosts)) + " hosts meet the criteria")
+def build_table(selected_hosts,severity):
+
+	#select hosts
+	myhosts = selected_hosts
+
+
+	#nikto
+	web_hosts = []
+	print("Searching for hosts that run a webserver...")
+	#loop through all hosts and check if port 80 or 443 is open
+	addhost = False
+	for host in myhosts:
+		for service in host.services:
+			if (service.port == '80' or service.port == '443' ):
+				addhost = True
+
+		if(addhost):
+			web_hosts.append(host)
+
+	print('found ' + str(len(web_hosts))+' webhosts:')
+	for host in web_hosts:
+		print ('\t' + str(host.ip))
+
+	print ("You can gather information about the webserver(s) by running nikto.\nNote that you have to be connected to the local network for this to work.")
+	run_nikto = raw_input("Run nikto on these hosts? (y/n): ")
+	if(run_nikto =="y"):
+
+		hostlist = []
+		exits = []
+
+		processes = []
+		for host in web_hosts:
+			tmpfile = os.tmpfile()
+			command="nikto -h " + host.ip
+			proc = subprocess.Popen([command],stdout=tmpfile, shell=True)
+			processes.append((proc,tmpfile,host.ip))
+			hostlist.append(host.ip)
+			exits.append(proc.poll())
+
+		exitlist = dict(zip(hostlist, exits))
+
+		while None in exitlist.values():
+			for proc,file,ip in processes:
+				exitlist[ip] = proc.poll()
+			displayNiktoProcess(exitlist)
+
+
+		for proc,file, ip in processes:
+				file.seek(0)
+				nikto_out = file.read()
+				file.close()
+				nikhost = find_host(selected_hosts,ip)
+				nikhost.nikto = nikto_out
+
+
+	#end nikto
+
+	print ('\n' + str(len(myhosts)) + " hosts meet the criteria")
+	print ('Generating report...')
 	hostcount_total = len(myhosts)
 	count = 0
 	for host in myhosts:
@@ -392,9 +473,8 @@ def build_table(severity,selected_hosts,nrOfServices):
 
 
 		#nikto
-		#TODO: clean up nikto output
 		if host.nikto is not None:
-			document.add_paragraph("\n" + "Nikto info:\n" + str(host.nikto))
+			document.add_paragraph (str(host.nikto))
 
 		document.add_paragraph("")
 	return
