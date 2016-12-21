@@ -88,19 +88,26 @@ def main():
 
 	#select hosts
 	print('All hosts in database:')
+	time.sleep(1)
 	for host in hosts:
 		print ('\t' + str(host.ip))
 
-	nrOfServices = int(raw_input("Minimum number of detected services? (nmap): "))
-	severity = float(raw_input("Vulnerability severity should be at least? (0.0 - 10.0): "))
 
-	#check for criteria end display new list of hosts
-	determined_hosts = determine_hosts(hosts, nrOfServices,severity)
+	selected_hosts_ok = False
+	while not (selected_hosts_ok):
+		#check for criteria end display new list of hosts
+		nrOfServices = int(raw_input("Minimum number of detected services? (nmap): "))
+		severity = float(raw_input("Vulnerability severity should be at least? (0.0 - 10.0): "))
 
-	print('Hosts that match the criteria:')
-	for host in determined_hosts:
-		print(str(host.ip))
+		determined_hosts = determine_hosts(hosts, nrOfServices,severity)
 
+		print(str(len(determined_hosts)) + ' hosts match those criteria:')
+		for host in determined_hosts:
+			print(str(host.ip))
+
+		select_ok = raw_input("Is this selection ok? (y/n): ")
+		if (select_ok == "y"): selected_hosts_ok = True
+		else: selected_hosts_ok = False
 
 	print ("Enter the hosts you want to display in the report, 'all' to select all hosts, or 'stop' to stop")
 	selected_hosts = []
@@ -143,7 +150,7 @@ def main():
 
 	document.add_paragraph("\n\n\n\n\n\n\n\n\n\n\n\n\n")
 
-	front_page3 = document.add_paragraph("Report generated with: \n http://github.com/thimoDeSouter/security-audit-scripts")
+	front_page3 = document.add_paragraph("Report generated with: \n http://github.com/ThimoDeSouter/security-audit-scripts")
 	front_page3.alignment = WD_ALIGN_PARAGRAPH.CENTER
 	front_page3.style = document.styles['Heading 6']
 
@@ -298,8 +305,7 @@ def build_table(selected_hosts,severity):
 
 	#end nikto
 
-	print ('\n' + str(len(myhosts)) + " hosts meet the criteria")
-	print ('Generating report...')
+	print ('\nGenerating report...')
 	hostcount_total = len(myhosts)
 	count = 0
 	for host in myhosts:
@@ -316,6 +322,7 @@ def build_table(selected_hosts,severity):
 		#main table
 		main_table = document.add_table(rows=0, cols=1)
 		main_table.autofit = False
+		main_table.style = 'TableGrid'
 
 		#info section
 		info_section = main_table.add_row()
@@ -346,6 +353,13 @@ def build_table(selected_hosts,severity):
 		p.getparent().remove(p)
 		p._p = p._element = None
 		services_table = services_section.cells[0].add_table(rows=0, cols=4)
+		services_table.style = 'TableGrid'
+		services_table.columns[0].width = Inches(1.5)
+		services_table.columns[1].width = Inches(1)
+		services_table.columns[2].width = Inches(1)
+		services_table.columns[3].width = Inches(2)
+
+
 
 		#header row services
 		header_row = services_table.add_row()
@@ -401,9 +415,9 @@ def build_table(selected_hosts,severity):
 
 				vulnerabilities_table = vulnerabilities_section.cells[0].add_table(rows=0,cols=2)
 				vulnerabilities_table.autofit = False
-				vulnerabilities_table.columns[0].width = Inches(1.5)
+				vulnerabilities_table.columns[0].width = Inches(1)
 				vulnerabilities_table.columns[1].width = Inches(4.5)
-
+				vulnerabilities_table.style = 'TableGrid'
 
 				#header row vulns
 				header_row = vulnerabilities_table.add_row()
