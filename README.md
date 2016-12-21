@@ -7,6 +7,7 @@ software:
   - python
   - nmap
   - nessus (free edition)
+  - nikto
   
 python modules:
   - elementtree
@@ -14,7 +15,7 @@ python modules:
 
 
 ###Usage:
-Run 'nmapscan.py' & 'nessusscan.py', follow on-screen instructions.(It's recommended to use option 4 in nmapscan.py)
+Run 'nmapscan.py' & 'nessusscan.py', follow on-screen instructions.(It's recommended to use option 4 in nmapscan.py)  
 Once all scans are done, run 'makereport.py'
 
 
@@ -26,4 +27,5 @@ Once all scans are done, run 'makereport.py'
 
 Thanks go out to Yellis for supplying the original nmap script.
 
-CCCP-Howest
+
+CCCP-Howest 2016-2017
