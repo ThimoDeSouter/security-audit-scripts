@@ -1,4 +1,6 @@
 import requests
+from requests.packages.urllib3.exceptions import InsecureRequestWarning
+requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
 import json
 import datetime
 import time
@@ -57,8 +59,8 @@ def connect(method, resource, data=None):
 
     if r.status_code != 200:
         e = r.json()
-        print e['error']
-        sys.exit()
+        print 'HTTP ERROR when trying to access:' + str(resource)
+        return None
 
     if 'download' in resource:
         return r.content
@@ -82,7 +84,12 @@ def logout():
 
 def get_policies():
 	data = connect('GET', '/editor/policy/templates')
-	return dict((p['title'], p['uuid']) for p in data['templates'])
+	if data is None:
+		print 'failed to fetch policies, sleeping for 1Os and re-trying'
+		time.sleep(10)
+		get_policies()
+	else:
+		return dict((p['title'], p['uuid']) for p in data['templates'])
 
 
 def get_history_ids(sid):
@@ -95,6 +102,28 @@ def get_scan_history(sid, hid):
 	data = connect('GET', '/scans/{0}'.format(sid), params)
 	return data['info']
 
+def get_scan_percentages(sid):
+	data = connect('GET', '/scans/{0}'.format(sid))
+	hostarray = []
+	for host in data['hosts']:
+		progress = str(host['progress'])
+		firstpart = progress.split('/')[0]
+		#print 'DEBUG: first part = ' + str(firstpart)
+
+		dividend = float(firstpart.split('-')[0])
+		#print 'DEBUG: dividend = ' + str(dividend)
+
+		divisor = float(firstpart.split('-')[1])
+		#print 'DEBUG: divisor = ' + str(divisor)
+
+		percentage = float(dividend/divisor)
+		percentage = percentage*100
+		#print 'DEBUG: percentage = ' + str(percentage)
+
+		precision = "%.0f" % percentage
+
+		hostarray.append ("\t\033[0m" + str(host['hostname']) + "\t " + str(precision) + "%")
+	return hostarray
 
 def add(name, desc, targets, pid):
     scan = {'uuid': pid,
@@ -206,9 +235,14 @@ def incomplete(scans):
 
 def view_status_scans(scans):
 	os.system('clear')
+	print ('Running Nessus scans...\n')
 	for scan in scans:
 		print scan.name + " = " + status(scan.id, scan.history_id)
-
+		scan_percentages = (get_scan_percentages(scan.id))
+		print ('\t\033[1m' +'HOST \t\t ' + '\033[1m'+ 'STATUS')
+		for host_percentage in scan_percentages:
+			print host_percentage
+		print ('\033[0m\n')
 	count = 20
 	while(count >=0):
     		sys.stdout.write("\rRefresh in:{0}>>".format(count))
@@ -222,24 +256,28 @@ if __name__ == "__main__" :
 	print 'Welcome to the nessus scan tool'
 
 	#start nessus
-	print ("starting nessus")
-	command="/etc/init.d/nessusd start > /dev/null"
+	print ("Attempting to start nessus...")
+	command="/etc/init.d/nessusd start"
         proc = subprocess.Popen([command],stdout=subprocess.PIPE,shell=True)
-        out = proc.communicate()
+	out = proc.communicate()[0]
+	print str(out)
 
-
-	print 'gathering variables:'
+	print 'Gathering variables:'
 	username = raw_input("Nessus Username: ")
 	password = getpass.getpass("Nessus Password: ")
+
 
 	url = raw_input("Nessus URL (blank for 'https://localhost:8834'): ")
 	if ( url == ''):
 		url = "https://localhost:8834"
 
+	print 'establishing connection...'
+	time.sleep(5)
 
 	print('Logging in...')
 	token = login(username, password)
 	#TODO: validate login result
+
 
 	create_scan(scans)
 	while True:
