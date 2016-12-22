@@ -322,7 +322,7 @@ def build_table(selected_hosts,severity):
 		#main table
 		main_table = document.add_table(rows=0, cols=1)
 		main_table.autofit = False
-		main_table.style = 'TableGrid'
+		main_table.style = 'Table Grid'
 
 		#info section
 		info_section = main_table.add_row()
@@ -353,7 +353,7 @@ def build_table(selected_hosts,severity):
 		p.getparent().remove(p)
 		p._p = p._element = None
 		services_table = services_section.cells[0].add_table(rows=0, cols=4)
-		services_table.style = 'TableGrid'
+		services_table.style = 'Table Grid'
 		services_table.columns[0].width = Inches(1.5)
 		services_table.columns[1].width = Inches(1)
 		services_table.columns[2].width = Inches(1)
@@ -417,7 +417,7 @@ def build_table(selected_hosts,severity):
 				vulnerabilities_table.autofit = False
 				vulnerabilities_table.columns[0].width = Inches(1)
 				vulnerabilities_table.columns[1].width = Inches(4.5)
-				vulnerabilities_table.style = 'TableGrid'
+				vulnerabilities_table.style = 'Table Grid'
 
 				#header row vulns
 				header_row = vulnerabilities_table.add_row()
@@ -486,9 +486,12 @@ def build_table(selected_hosts,severity):
 						p.add_run(str(vulnerability.solution))
 
 
-		#nikto
+		#nikto section
 		if host.nikto is not None:
-			document.add_paragraph (str(host.nikto))
+			nikto_section = main_table.add_row()
+			p_nikto = nikto_section.cells[0].paragraphs[0]
+			p_nikto.add_run(str(host.nikto))
+		
 
 		document.add_paragraph("")
 	return
