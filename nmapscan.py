@@ -45,7 +45,19 @@ print "5. intense scan, all TCP ports "
 print "6. quick traceroute scan"
 print "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
 
-number = raw_input("Which scan do you want to perform? ")
+while True:
+    try:
+        number = raw_input("Which scan do you want to perform? ")
+
+
+    except ValueError:
+        print("input is not valid")
+    else:
+        print number
+        if number < 1 or number > 6:
+            print "number must between 1 and 6!"
+        else:
+            break
 ip = raw_input("What ip address or range do you want to scan? ")
 
 cleanip = ip.replace('/','#')
